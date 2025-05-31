@@ -3,63 +3,64 @@ package com.ahmedabad.api_clean.di
 import com.ahmedabad.api_clean.data.remote.ApiService
 import com.ahmedabad.api_clean.data.repository.UserRepositoryImpl
 import com.ahmedabad.api_clean.domain.repository.UserRepository
+import com.ahmedabad.api_clean.domain.usecase.GetUsers
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    @Provides
-    fun provideApiKeyInterceptor(): Interceptor = ApiKeyInterceptor()
+    private const val API_KEY = "e19397e4792d409eb701185d34c49fec"
+    private const val BASE_URL = "https://crudcrud.com/api/$API_KEY/"
 
     @Provides
-    fun provideLoggingInterceptor(): HttpLoggingInterceptor =
-        HttpLoggingInterceptor().apply {
+    @Singleton
+    fun provideLoggingInterceptor(): HttpLoggingInterceptor {
+        return HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
+    }
 
     @Provides
-    fun provideOkHttpClient(
-        apiKeyInterceptor: Interceptor,
-        loggingInterceptor: HttpLoggingInterceptor
-    ): OkHttpClient =
-        OkHttpClient.Builder()
-            .addInterceptor(apiKeyInterceptor)
+    @Singleton
+    fun provideOkHttpClient(loggingInterceptor: HttpLoggingInterceptor): OkHttpClient {
+        return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .build()
+    }
 
     @Provides
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
-        Retrofit.Builder()
-            .baseUrl("https://reqres.in/api/")
-            .client(okHttpClient)
+    @Singleton
+    fun provideRetrofit(client: OkHttpClient): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+    }
 
     @Provides
-    fun provideApiService(retrofit: Retrofit): ApiService =
-        retrofit.create(ApiService::class.java)
+    @Singleton
+    fun provideApiService(retrofit: Retrofit) : ApiService {
+        return retrofit.create(ApiService::class.java)
+    }
 
     @Provides
-    fun provideUserRepository(apiService: ApiService): UserRepository =
-        UserRepositoryImpl(apiService)
-}
+    @Singleton
+    fun provideRepository(apiService: ApiService) : UserRepository {
+        return UserRepositoryImpl(apiService)
+    }
 
-class ApiKeyInterceptor : Interceptor {
-    override fun intercept(chain: Interceptor.Chain): Response {
-        val original = chain.request()
-        val request = original.newBuilder()
-            .header("x-api-key", "reqres-free-v1")
-            .build()
-        return chain.proceed(request)
+    @Provides
+    @Singleton
+    fun provideGetUserUseCase(repository: UserRepository) : GetUsers {
+        return GetUsers(repository)
     }
 }
